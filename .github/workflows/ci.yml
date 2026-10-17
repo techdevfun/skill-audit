@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install pytest
+        run: pip install pytest
+      - name: Run tests
+        run: PYTHONPATH=src python -m pytest -q
+      - name: Smoke-test CLI on examples
+        run: |
+          PYTHONPATH=src python -m skill_audit check --path examples/good --format text
+          PYTHONPATH=src python -m skill_audit check --path examples/messy --format json | python -c "import json,sys; d=json.load(sys.stdin); assert d['errors'] > 0, 'messy example should fail'"
+          PYTHONPATH=src python -m skill_audit list --path examples/good
