@@ -28,6 +28,13 @@ def test_frontmatter_missing():
     assert warns
 
 
+def test_frontmatter_with_bom():
+    # Files saved with a UTF-8 BOM (common from Windows editors) must still parse.
+    fields, _, warns = parse_frontmatter("﻿---\nname: foo\ndescription: Does foo when needed.\n---\n\nBody here.\n")
+    assert fields["name"] == "foo"
+    assert warns == []
+
+
 def test_tokens_and_jaccard():
     assert jaccard(tokens("review pull requests for bugs"), tokens("review pull requests for bugs")) == 1.0
     assert jaccard(tokens("alpha beta gamma"), tokens("delta epsilon zeta")) == 0.0
