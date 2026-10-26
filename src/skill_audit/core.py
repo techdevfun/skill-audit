@@ -24,9 +24,11 @@ WORD_RE = re.compile(r"[a-z0-9]+")
 def parse_frontmatter(text: str) -> tuple[dict[str, str], str, list[str]]:
     """Parse SKILL.md frontmatter. Returns (fields, body, parse_warnings)."""
     warnings: list[str] = []
-    # Strip a UTF-8 BOM (common in files saved by Windows editors) so the
-    # frontmatter fence is still recognized.
-    text = text.lstrip("﻿")
+    # Strip a UTF-8 BOM (common in files saved by Windows editors) and any
+    # leading blank lines / whitespace so the frontmatter fence is still
+    # recognized. An editor that adds a blank first line used to make a
+    # perfectly valid SKILL.md report "missing frontmatter".
+    text = text.lstrip("﻿ \t\r\n")
     if not text.startswith("---"):
         return {}, text, ["missing frontmatter block (file must start with ---)"]
     parts = text.split("---", 2)
