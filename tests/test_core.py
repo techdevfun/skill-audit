@@ -35,6 +35,16 @@ def test_frontmatter_with_bom():
     assert warns == []
 
 
+def test_frontmatter_leading_blank_lines():
+    # A blank first line (or leading spaces) must not hide the frontmatter.
+    fields, _, warns = parse_frontmatter("\n\n---\nname: foo\ndescription: Does foo when needed.\n---\n\nBody here.\n")
+    assert fields["name"] == "foo"
+    assert warns == []
+    fields, _, warns = parse_frontmatter("  \n---\nname: foo\ndescription: Does foo when needed.\n---\n\nBody here.\n")
+    assert fields["name"] == "foo"
+    assert warns == []
+
+
 def test_tokens_and_jaccard():
     assert jaccard(tokens("review pull requests for bugs"), tokens("review pull requests for bugs")) == 1.0
     assert jaccard(tokens("alpha beta gamma"), tokens("delta epsilon zeta")) == 0.0
