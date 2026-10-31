@@ -56,6 +56,11 @@ def main(argv: list[str] | None = None) -> int:
             print(format_text(result))
         return 0 if result["ok"] else 1
     if args.command == "list":
+        dir_error = next((it for it in result["issues"] if it["code"] == "missing-dir"), None)
+        if dir_error is not None:
+            # A wrong --path should fail loudly, not pretend the pack is empty.
+            print(f"Error: {dir_error['message']}", file=sys.stderr)
+            return 1
         if args.format == "json":
             print(json.dumps(result["skills"], indent=2))
         else:
