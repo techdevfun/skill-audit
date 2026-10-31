@@ -185,6 +185,10 @@ def audit(root: Path) -> dict:
     for i in range(len(described)):
         for j in range(i + 1, len(described)):
             a, b = described[i], described[j]
+            if a["description"] == b["description"]:
+                # Already flagged as duplicate-description above; one warning
+                # per problem keeps the summary actionable.
+                continue
             sim = jaccard(tokens(a["description"]), tokens(b["description"]))
             if sim >= 0.7:
                 issues.append({"severity": "warning", "code": "overlapping-description",
