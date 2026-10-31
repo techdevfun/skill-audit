@@ -81,6 +81,31 @@ def test_overlapping_descriptions_warn(tmp_path: Path):
     assert any(i["code"] == "overlapping-description" for i in result["issues"])
 
 
+def test_identical_descriptions_warn_once(tmp_path: Path):
+    # Identical descriptions must flag duplicate-description only —
+    # not duplicate- AND overlapping-description for the same pair.
+    desc = "Review pull requests for bugs, security issues and missing tests every day."
+    write_skill(tmp_path, "a", f'name: review-a\ndescription: {desc}\nversion: "1.0.0"')
+    write_skill(tmp_path, "b", f'name: review-b\ndescription: {desc}\nversion: "1.0.0"')
+    result = audit(tmp_path)
+    codes = [i["code"] for i in result["issues"]]
+    assert "duplicate-description" in codes
+    assert "overlapping-description" not in codes
+
+
+def test_cli_list_missing_dir_fails_loudly(tmp_path: Path):
+    # `list` on a wrong path must error out, not report an empty pack.
+    repo_src = str(Path(__file__).resolve().parents[1] / "src")
+    env = {"PATH": "/usr/bin:/bin:/usr/local/bin", "PYTHONPATH": repo_src, "PYTHONIOENCODING": "utf-8"}
+    missing = str(tmp_path / "does-not-exist")
+    out = subprocess.run(
+        [sys.executable, "-m", "skill_audit", "list", "--path", missing],
+        capture_output=True, text=True, env=env,
+    )
+    assert out.returncode != 0
+    assert "not found" in out.stderr.lower()
+
+
 def test_cli_json_and_list(tmp_path: Path):
     write_skill(tmp_path, "code-review", 'name: code-review\ndescription: Review a pull request for bugs, security issues and missing tests.\nversion: "1.0.0"')
     repo_src = str(Path(__file__).resolve().parents[1] / "src")
