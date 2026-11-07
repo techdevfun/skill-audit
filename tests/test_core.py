@@ -93,6 +93,37 @@ def test_identical_descriptions_warn_once(tmp_path: Path):
     assert "overlapping-description" not in codes
 
 
+def test_pack_under_skipped_ancestor_is_audited(tmp_path: Path):
+    # Regression: the vendored-dir skip used to run on the full absolute
+    # path, so a pack living under an ancestor named dist/build/venv had
+    # every skill silently skipped and reported "OK: 0 skill(s)".
+    pack = tmp_path / "dist" / "pack"
+    write_skill(pack, "my-skill", 'name: my-skill\ndescription: Does something genuinely useful for testing purposes here.\nversion: "1.0.0"')
+    result = audit(pack)
+    assert result["ok"] is True
+    assert result["skill_count"] == 1
+
+
+def test_vendored_subdir_inside_pack_still_skipped(tmp_path: Path):
+    # A vendored dir *inside* the pack is still skipped — only the
+    # ancestor-of-root case changed.
+    write_skill(tmp_path, "my-skill", 'name: my-skill\ndescription: Does something genuinely useful for testing purposes here.\nversion: "1.0.0"')
+    write_skill(tmp_path / "venv", "inner", 'name: inner\ndescription: A skill that lives inside a venv folder in the pack.\nversion: "1.0.0"')
+    result = audit(tmp_path)
+    assert result["ok"] is True
+    assert result["skill_count"] == 1
+    assert result["skills"][0]["name"] == "my-skill"
+
+
+def test_all_skills_skipped_is_not_clean(tmp_path: Path):
+    # A pack whose only skills sit in skipped dirs must fail loudly,
+    # not report "OK: 0 skill(s)".
+    write_skill(tmp_path / "venv", "inner", 'name: inner\ndescription: A skill that lives inside a venv folder in the pack.\nversion: "1.0.0"')
+    result = audit(tmp_path)
+    assert not result["ok"]
+    assert any(i["code"] == "no-skills" for i in result["issues"])
+
+
 def test_cli_list_missing_dir_fails_loudly(tmp_path: Path):
     # `list` on a wrong path must error out, not report an empty pack.
     repo_src = str(Path(__file__).resolve().parents[1] / "src")
