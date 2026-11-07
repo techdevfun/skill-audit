@@ -85,8 +85,19 @@ def discover_skills(root: Path) -> tuple[list[dict], list[dict]]:
         return skills, [{"severity": "error", "code": "no-skills",
                          "message": f"No SKILL.md found under {root}", "skill": None}]
     for f in skill_files:
-        # Skip vendored / generated dirs.
-        if any(part in {".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build"} for part in f.parts):
+        # Skip vendored / generated dirs *inside the pack*. Only the path
+        # relative to root counts: an ancestor of the pack named e.g.
+        # "dist" or "venv" must not hide the whole pack. (Before this fix
+        # the check ran on the full absolute path, so auditing a pack under
+        # ~/work/dist/skills silently skipped every skill and reported
+        # "OK: 0 skill(s) look clean." with exit code 0.)
+        try:
+            rel_dirs = f.relative_to(root).parent.parts
+        except ValueError:
+            # Fail open: if the relative path cannot be computed, audit
+            # the file rather than silently skipping it.
+            rel_dirs = ()
+        if any(part in {".git", "node_modules", ".venv", "venv", "__pycache__", "dist", "build"} for part in rel_dirs):
             continue
         text = f.read_text(encoding="utf-8", errors="replace")
         fields, body, warnings = parse_frontmatter(text)
@@ -107,6 +118,15 @@ def discover_skills(root: Path) -> tuple[list[dict], list[dict]]:
                            "message": f"{skill['name'] or f.parent.name}: SKILL.md body is very short "
                                       f"({skill['body_len']} chars). A skill needs real instructions, not just a header.",
                            "skill": skill["name"] or f.parent.name})
+    if skill_files and not skills:
+        # Every SKILL.md found was inside a skipped (vendored/generated)
+        # directory. That is not a clean pack — report it instead of
+        # claiming "OK: 0 skill(s)".
+        issues.append({"severity": "error", "code": "no-skills",
+                       "message": f"No auditable SKILL.md found under {root} "
+                                  "(every SKILL.md is inside a skipped directory "
+                                  "such as .venv, node_modules, dist or build).",
+                       "skill": None})
     # Directories that look like skill dirs but have no SKILL.md.
     for d in sorted(p for p in root.iterdir() if p.is_dir()):
         if d.name.startswith("."):
