@@ -137,6 +137,43 @@ def test_cli_list_missing_dir_fails_loudly(tmp_path: Path):
     assert "not found" in out.stderr.lower()
 
 
+def test_cli_list_empty_dir_fails_loudly(tmp_path: Path):
+    # `list` on an existing but empty dir must error out, not print
+    # "No skills found." with exit code 0. `check` already treats this
+    # as a no-skills error; `list` used to disagree, so a misconfigured
+    # --path (or a script consuming `list --format json`, which returned
+    # `[]`) looked like a healthy empty pack.
+    repo_src = str(Path(__file__).resolve().parents[1] / "src")
+    env = {"PATH": "/usr/bin:/bin:/usr/local/bin", "PYTHONPATH": repo_src, "PYTHONIOENCODING": "utf-8"}
+    out = subprocess.run(
+        [sys.executable, "-m", "skill_audit", "list", "--path", str(tmp_path)],
+        capture_output=True, text=True, env=env,
+    )
+    assert out.returncode != 0
+    assert "no skill.md" in out.stderr.lower()
+    out = subprocess.run(
+        [sys.executable, "-m", "skill_audit", "list", "--path", str(tmp_path), "--format", "json"],
+        capture_output=True, text=True, env=env,
+    )
+    assert out.returncode != 0
+    assert out.stdout.strip() == ""
+
+
+def test_cli_list_all_skills_skipped_fails_loudly(tmp_path: Path):
+    # Same hole for a pack whose only skills sit in skipped dirs: `check`
+    # reports a no-skills error, so `list` must fail too instead of
+    # claiming the pack is empty.
+    write_skill(tmp_path / "venv", "inner", 'name: inner\ndescription: A skill that lives inside a venv folder in the pack.\nversion: "1.0.0"')
+    repo_src = str(Path(__file__).resolve().parents[1] / "src")
+    env = {"PATH": "/usr/bin:/bin:/usr/local/bin", "PYTHONPATH": repo_src, "PYTHONIOENCODING": "utf-8"}
+    out = subprocess.run(
+        [sys.executable, "-m", "skill_audit", "list", "--path", str(tmp_path)],
+        capture_output=True, text=True, env=env,
+    )
+    assert out.returncode != 0
+    assert "no auditable skill.md" in out.stderr.lower()
+
+
 def test_cli_json_and_list(tmp_path: Path):
     write_skill(tmp_path, "code-review", 'name: code-review\ndescription: Review a pull request for bugs, security issues and missing tests.\nversion: "1.0.0"')
     repo_src = str(Path(__file__).resolve().parents[1] / "src")
